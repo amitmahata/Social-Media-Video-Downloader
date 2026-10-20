@@ -37,3 +37,17 @@ Finished files are kept in your temp folder for 30 minutes, then deleted.
   `.venv\Scripts\python -m pip install -U yt-dlp`
 - Private videos or ones that require login can't be downloaded.
 - Only download content you own or have permission to use, and respect each platform's terms.
+
+## Deploy
+This app needs a **long-running server** (downloads take seconds to minutes, ffmpeg merges files on
+disk, and job progress is kept in memory). Serverless platforms like Vercel/Netlify Functions are a
+poor fit: short time limits, ~4.5 MB response limit, and no shared disk between requests.
+
+Use any Docker host instead — the included `Dockerfile` works as-is on:
+- **Render** (Web Service → Docker) · **Railway** · **Fly.io** · **Koyeb** · or any VPS (`docker run -p 8000:8000`)
+
+Custom domain: add a CNAME record for your subdomain (e.g. `dl` → the host's URL) and add the
+domain in the host's dashboard; it issues HTTPS automatically.
+
+Note: YouTube often blocks downloads from datacenter IPs ("Sign in to confirm you're not a bot").
+Instagram/Facebook/TikTok are usually fine.

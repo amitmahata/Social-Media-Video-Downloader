@@ -10,6 +10,14 @@
   --danger: #d93a4b;
   --radius: 16px;
   --shadow: 0 10px 30px rgba(23, 26, 43, 0.08);
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --blob-1: #8b7bff;
+  --blob-2: #ff6fb1;
+  --blob-3: #4fd1ff;
+  --blob-4: #ffb86b;
+  --blob-opacity: 0.45;
+  --grid-line: rgba(23, 26, 43, 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -21,6 +29,14 @@
     --border: #2a2e48;
     --accent-soft: #262350;
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    --glass: rgba(24, 27, 46, 0.62);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --blob-1: #5b4bff;
+    --blob-2: #c2287a;
+    --blob-3: #0e8fbf;
+    --blob-4: #7a3cff;
+    --blob-opacity: 0.38;
+    --grid-line: rgba(255, 255, 255, 0.05);
   }
 }
 
@@ -29,26 +45,102 @@
 
 body {
   margin: 0;
+  min-height: 100vh;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
 }
 
-.wrap { max-width: 860px; margin: 0 auto; padding: 48px 16px 32px; }
+.wrap { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 48px 16px 32px; }
 
+/* ------------------------------------------------------------ background */
+.bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+
+.blob {
+  position: absolute; width: 46vmax; height: 46vmax; border-radius: 50%;
+  filter: blur(80px); opacity: var(--blob-opacity); will-change: transform;
+}
+.b1 { background: var(--blob-1); top: -18vmax; left: -12vmax; animation: drift1 26s ease-in-out infinite alternate; }
+.b2 { background: var(--blob-2); top: -10vmax; right: -16vmax; animation: drift2 30s ease-in-out infinite alternate; }
+.b3 { background: var(--blob-3); bottom: -22vmax; left: 10vmax; animation: drift3 34s ease-in-out infinite alternate; }
+.b4 {
+  background: var(--blob-4); bottom: -18vmax; right: -6vmax; width: 34vmax; height: 34vmax;
+  animation: drift1 38s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes drift1 { to { transform: translate(14vmax, 10vmax) scale(1.15); } }
+@keyframes drift2 { to { transform: translate(-16vmax, 14vmax) scale(0.9); } }
+@keyframes drift3 { to { transform: translate(12vmax, -14vmax) scale(1.2); } }
+
+.grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 20%, transparent 75%);
+          mask-image: radial-gradient(ellipse at 50% 30%, #000 20%, transparent 75%);
+}
+
+/* glow that follows the pointer (position set from app.js) */
+.spotlight {
+  position: absolute; inset: 0;
+  background: radial-gradient(520px circle at var(--mx, 50%) var(--my, 30%),
+    color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%);
+}
+
+.floaters span {
+  position: absolute; left: var(--x); bottom: -40px;
+  font-size: 22px; color: var(--accent); opacity: 0;
+  animation: rise var(--d) linear infinite; animation-delay: var(--delay);
+}
+@keyframes rise {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 0; }
+  10%  { opacity: .28; }
+  90%  { opacity: .28; }
+  100% { transform: translateY(-110vh) rotate(25deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob, .hero h1 span, .dot { animation: none; }
+  .floaters { display: none; }
+}
+
+/* ------------------------------------------------------------ hero */
 .hero { text-align: center; margin-bottom: 28px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px;
+  padding: 6px 14px; border-radius: 999px; font-size: .82rem; font-weight: 600; color: var(--muted);
+  background: var(--glass); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: ping 2s infinite; }
+@keyframes ping {
+  0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, .6); }
+  70%  { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
 .hero h1 { font-size: clamp(1.8rem, 5vw, 2.8rem); margin: 0 0 10px; letter-spacing: -0.02em; }
 .hero h1 span {
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
+  background-size: 200% auto; animation: shimmer 6s linear infinite;
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
+@keyframes shimmer { to { background-position: 200% center; } }
 .hero p { color: var(--muted); margin: 0 auto; max-width: 600px; }
 
+/* ------------------------------------------------------------ search */
 .search {
   display: flex; gap: 8px; padding: 8px;
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--glass); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   border-radius: var(--radius); box-shadow: var(--shadow);
+  transition: box-shadow .2s, border-color .2s;
+}
+.search:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--shadow), 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .search input {
   flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
@@ -59,15 +151,16 @@ button {
   font: inherit; cursor: pointer; border: 0; border-radius: 12px;
   padding: 12px 22px; font-weight: 600; color: #fff;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  transition: transform .1s, opacity .2s;
+  transition: transform .1s, opacity .2s, box-shadow .2s;
 }
+button:hover:not(:disabled) { box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent); }
 button:active { transform: scale(.97); }
 button:disabled { opacity: .55; cursor: not-allowed; }
 button.ghost { background: var(--accent-soft); color: var(--accent); }
 
 .error {
   margin: 16px 0 0; padding: 12px 16px; border-radius: 12px;
-  background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface)); color: var(--danger);
 }
 
 .loading { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 24px; color: var(--muted); }
@@ -78,12 +171,16 @@ button.ghost { background: var(--accent-soft); color: var(--accent); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ------------------------------------------------------------ result card */
 .card {
   margin-top: 24px; display: grid; grid-template-columns: 300px 1fr; gap: 24px;
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--glass); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px;
+  animation: rise-in .35s ease-out;
 }
-.media { position: relative; }
+@keyframes rise-in { from { opacity: 0; transform: translateY(12px); } }
+.media { position: relative; align-self: start; }
 .media img { width: 100%; aspect-ratio: 16/10; object-fit: cover; border-radius: 12px; background: var(--border); display: block; }
 .badge {
   position: absolute; right: 8px; bottom: 8px; padding: 2px 8px; border-radius: 6px;
@@ -99,15 +196,22 @@ button.ghost { background: var(--accent-soft); color: var(--accent); }
 .details h2 { margin: 8px 0 2px; font-size: 1.15rem; overflow-wrap: anywhere; }
 .muted { color: var(--muted); margin: 0 0 16px; }
 
-.tabs { display: flex; gap: 6px; background: var(--bg); padding: 4px; border-radius: 12px; margin-bottom: 14px; }
+.tabs {
+  display: flex; gap: 6px; padding: 4px; border-radius: 12px; margin-bottom: 14px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
 .tab { flex: 1; background: transparent; color: var(--muted); padding: 9px 12px; }
+.tab:hover:not(:disabled) { box-shadow: none; color: var(--text); }
 .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
 
 .options { display: grid; gap: 8px; }
 .option {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 10px 12px 10px 16px; border: 1px solid var(--border); border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  transition: border-color .15s, transform .15s;
 }
+.option:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); transform: translateY(-1px); }
 .option strong { font-size: 1rem; }
 .option small { color: var(--muted); margin-left: 8px; }
 .option button { padding: 8px 16px; font-size: .9rem; }
@@ -123,7 +227,24 @@ button.ghost { background: var(--accent-soft); color: var(--accent); }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 .progress-meta { display: flex; justify-content: space-between; color: var(--muted); font-size: .85rem; margin-top: 6px; }
 
-footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 40px; }
+/* ------------------------------------------------------------ footer */
+footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 48px; }
+.credit { margin: 0 0 12px; font-size: .95rem; }
+.credit strong {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.social { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.social a {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px;
+  color: var(--text); text-decoration: none; font-weight: 600;
+  background: var(--glass); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  transition: transform .15s, border-color .15s, color .15s;
+}
+.social a:hover { transform: translateY(-2px); border-color: var(--accent); color: var(--accent); }
+.social svg { width: 16px; height: 16px; fill: currentColor; }
+.fine { margin: 0; font-size: .8rem; opacity: .85; }
 
 @media (max-width: 680px) {
   .wrap { padding-top: 28px; }
@@ -131,4 +252,5 @@ footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top:
   .search { flex-wrap: wrap; }
   .search input { flex-basis: 100%; }
   .search button { flex: 1; }
+  .blob { filter: blur(60px); }
 }

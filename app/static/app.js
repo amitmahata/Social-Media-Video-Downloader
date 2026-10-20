@@ -2,6 +2,21 @@ const $ = (id) => document.getElementById(id);
 
 const state = { url: "", info: null, tab: "video", busy: false };
 
+// background glow follows the pointer (one update per frame at most)
+(() => {
+  const spot = document.querySelector(".spotlight");
+  if (!spot || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  let frame = 0;
+  addEventListener("pointermove", (e) => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      spot.style.setProperty("--mx", `${e.clientX}px`);
+      spot.style.setProperty("--my", `${e.clientY}px`);
+      frame = 0;
+    });
+  }, { passive: true });
+})();
+
 function showError(msg) {
   $("error").textContent = msg;
   $("error").hidden = !msg;

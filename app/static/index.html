@@ -9,8 +9,27 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="bg" aria-hidden="true">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+    <div class="blob b4"></div>
+    <div class="grid"></div>
+    <div class="spotlight"></div>
+    <div class="floaters">
+      <span style="--x:8%;--d:22s;--delay:0s">▶</span>
+      <span style="--x:22%;--d:28s;--delay:-6s">♪</span>
+      <span style="--x:38%;--d:25s;--delay:-14s">⬇</span>
+      <span style="--x:55%;--d:30s;--delay:-3s">▶</span>
+      <span style="--x:70%;--d:24s;--delay:-18s">♪</span>
+      <span style="--x:84%;--d:27s;--delay:-9s">⬇</span>
+      <span style="--x:94%;--d:32s;--delay:-21s">▶</span>
+    </div>
+  </div>
+
   <main class="wrap">
     <header class="hero">
+      <span class="pill"><span class="dot"></span> Free · No sign-up · No watermark</span>
       <h1>Social Media <span>Video Downloader</span></h1>
       <p>Paste a link from YouTube, Instagram, Facebook, TikTok, X, Reddit, Vimeo and 1000+ other sites.
          Pick a quality — or grab just the audio.</p>
@@ -50,7 +69,18 @@
     </section>
 
     <footer>
-      <p>Only download content you own or have permission to use. Respect creators and each platform's terms.</p>
+      <p class="credit">Crafted with precision by <strong>Amit Mahata</strong></p>
+      <nav class="social" aria-label="Amit Mahata online">
+        <a href="https://www.linkedin.com/in/YOUR-LINKEDIN-ID" target="_blank" rel="noopener" aria-label="LinkedIn">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4V21H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.83-2.06 3.77-2.06 4.03 0 4.77 2.65 4.77 6.1V21h-4v-5.03c0-1.2-.02-2.75-1.67-2.75-1.68 0-1.94 1.31-1.94 2.66V21h-4z"/></svg>
+          LinkedIn
+        </a>
+        <a href="https://YOUR-PORTFOLIO-URL" target="_blank" rel="noopener" aria-label="Portfolio">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.93 6h-2.95a15.6 15.6 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.93 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82A13.8 13.8 0 0 1 12 4.04zM4.26 14a8.2 8.2 0 0 1 0-4h3.38a16.5 16.5 0 0 0 0 4zm.81 2h2.95c.32 1.25.78 2.45 1.38 3.56A8 8 0 0 1 5.07 16zm2.95-8H5.07A8 8 0 0 1 9.4 4.44 15.6 15.6 0 0 0 8.02 8zM12 19.96A13.8 13.8 0 0 1 10.09 16h3.82A13.8 13.8 0 0 1 12 19.96zM14.34 14H9.66a14.7 14.7 0 0 1 0-4h4.68a14.7 14.7 0 0 1 0 4zm.26 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 0 1-4.33 3.56zM16.36 14a16.5 16.5 0 0 0 0-4h3.38a8.2 8.2 0 0 1 0 4z"/></svg>
+          Portfolio
+        </a>
+      </nav>
+      <p class="fine">Only download content you own or have permission to use. Respect creators and each platform's terms.</p>
     </footer>
   </main>
   <script src="app.js"></script>
