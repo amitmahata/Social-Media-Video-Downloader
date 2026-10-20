@@ -120,7 +120,12 @@ function renderOptions() {
       box.append(optionRow("Best available", "MP4", "", () => startDownload("video", null)));
     } else {
       i.video_options.forEach((o) =>
-        box.append(optionRow(o.label, o.size ? `~${o.size}` : "MP4", hdTag(o.height), () => startDownload("video", o.height)))
+        box.append(optionRow(
+          o.label,
+          o.converted ? "MP4 · smaller file" : o.size ? `~${o.size}` : "MP4",
+          hdTag(o.height),
+          () => startDownload("video", o.height)
+        ))
       );
     }
   } else {
@@ -136,8 +141,26 @@ function setBusy(busy) {
   document.querySelectorAll(".options button, .tab, #fetch").forEach((b) => (b.disabled = busy));
 }
 
+function showDone(filename, href) {
+  setProgress(100, "", "");
+  document.querySelector(".bar").classList.add("complete");
+  const text = $("progress-text");
+  text.replaceChildren();
+  const ok = document.createElement("span");
+  ok.className = "done-text";
+  ok.textContent = `✓ Saved${filename ? `: ${filename}` : ""} — check your Downloads folder`;
+  const again = document.createElement("a");
+  again.href = href;
+  again.download = filename || "";
+  again.className = "again";
+  again.textContent = "Download again";
+  text.append(ok);
+  $("progress-speed").replaceChildren(again);
+}
+
 function setProgress(pct, text, speed, indeterminate = false) {
   $("progress").hidden = false;
+  document.querySelector(".bar").classList.remove("complete");
   $("bar-fill").style.width = indeterminate ? "" : `${pct}%`;
   document.querySelector(".bar").classList.toggle("indeterminate", indeterminate);
   $("progress-text").textContent = text;
@@ -158,17 +181,20 @@ async function startDownload(kind, quality) {
 
       if (p.status === "error") throw new Error(p.error);
       if (p.status === "done") {
-        setProgress(100, "Done! Your download is starting…", "");
+        // the file is already complete on the server, so the browser saves it right away
+        const href = `/api/file/${job_id}`;
         const a = document.createElement("a");
-        a.href = `/api/file/${job_id}`;
+        a.href = href;
         a.download = p.filename || "";
         document.body.append(a);
         a.click();
         a.remove();
+        showDone(p.filename, href);
         break;
       }
       if (p.status === "processing") {
-        setProgress(100, kind === "audio" ? "Converting to MP3…" : "Merging video & audio…", "", true);
+        const fallback = kind === "audio" ? "Converting to MP3…" : "Merging video & audio…";
+        setProgress(100, p.stage || fallback, "", true);
       } else if (p.status === "downloading") {
         const eta = p.eta ? ` · ${p.eta} left` : "";
         setProgress(p.progress, `Downloading ${p.progress.toFixed(0)}%${eta}`, p.speed);

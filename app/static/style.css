@@ -225,7 +225,14 @@ button.ghost { background: var(--accent-soft); color: var(--accent); }
 }
 .bar.indeterminate #bar-fill { width: 35%; animation: slide 1.2s ease-in-out infinite; }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
-.progress-meta { display: flex; justify-content: space-between; color: var(--muted); font-size: .85rem; margin-top: 6px; }
+.bar.complete #bar-fill { background: #22c55e; }
+.progress-meta {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  color: var(--muted); font-size: .85rem; margin-top: 6px;
+}
+.done-text { color: #16a34a; font-weight: 600; overflow-wrap: anywhere; }
+.again { color: var(--accent); font-weight: 600; white-space: nowrap; text-decoration: none; }
+.again:hover { text-decoration: underline; }
 
 /* ------------------------------------------------------------ footer */
 footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 48px; }

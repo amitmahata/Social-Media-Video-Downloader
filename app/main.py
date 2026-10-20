@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import re
 import shutil
+import subprocess
 import tempfile
 import threading
 import time
@@ -80,6 +81,7 @@ class Job:
     speed: str = ""
     eta: str = ""
     error: str = ""
+    stage: str = ""  # human-readable step shown while processing
     file_path: Path | None = None
     download_name: str = ""
     created: float = field(default_factory=time.time)
@@ -123,6 +125,11 @@ STATS_PREFIX_RE = re.compile(r"^(?:[\d.,]+[KMB]?\s+(?:views|reactions|likes|comm
 
 def clean_title(info: dict) -> str:
     title = (info.get("title") or "").strip()
+    # Instagram titles are just "Video by <user>"; the caption's first line is more useful
+    if re.match(r"^(Video|Post) by ", title):
+        caption = next((ln.strip() for ln in (info.get("description") or "").splitlines() if ln.strip()), "")
+        if caption:
+            title = caption[:120]
     title = STATS_PREFIX_RE.sub("", title).lstrip("| ").strip()
     uploader = info.get("uploader") or ""
     if uploader and title.endswith(f"| {uploader}"):
@@ -196,13 +203,20 @@ def video_options(info: dict) -> list[dict]:
         h = min(info["height"], info.get("width") or info["height"])
         best_by_height[h] = info.get("filesize") or 0
 
+    if not best_by_height:
+        return []
+    max_res = max(best_by_height)
+
     options = []
     for std in STANDARD_HEIGHTS:
-        # a bucket is offered if a format at least ~90% that tall exists (handles 1072p etc.)
+        # a bucket is offered natively if a format ~that size exists (handles 1072p etc.)
         matching = [h for h in best_by_height if std * 0.9 <= h <= std * 1.1]
         if matching:
             h = max(matching)
             options.append({"height": std, "label": f"{std}p", "size": fmt_bytes(best_by_height[h])})
+        elif std < max_res and FFMPEG:
+            # not offered by the site: we downscale a higher version ourselves
+            options.append({"height": std, "label": f"{std}p", "size": None, "converted": True})
     return options
 
 
@@ -213,6 +227,36 @@ def platform_name(info: dict) -> str:
 # --------------------------------------------------------------------------- #
 # Download worker
 # --------------------------------------------------------------------------- #
+VIDEO_SIZE_RE = re.compile(r"Video:.*?\b(\d{2,5})x(\d{2,5})\b")
+
+
+def probe_size(path: Path) -> tuple[int | None, int | None]:
+    """Width/height of the first video stream, read from ffmpeg's stream summary."""
+    result = subprocess.run(
+        [FFMPEG, "-hide_banner", "-i", str(path)], capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
+    m = VIDEO_SIZE_RE.search(result.stderr)
+    return (int(m.group(1)), int(m.group(2))) if m else (None, None)
+
+
+def downscale(src: Path, quality: int, portrait: bool) -> Path:
+    """Re-encode to H.264 with the shorter side set to `quality` (e.g. 480p)."""
+    dst = src.with_name(f"{src.stem}.{quality}p.mp4")
+    # -2 keeps the aspect ratio with an even dimension (required by H.264)
+    scale = f"scale={quality}:-2" if portrait else f"scale=-2:{quality}"
+    cmd = [
+        FFMPEG, "-y", "-loglevel", "error", "-i", str(src),
+        "-vf", scale, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
+        str(dst),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if result.returncode != 0 or not dst.exists():
+        raise RuntimeError(f"Couldn't convert to {quality}p: {result.stderr.strip()[-300:]}")
+    src.unlink(missing_ok=True)
+    return dst
+
+
 def run_download(job: Job, req: DownloadRequest) -> None:
     out_dir = DOWNLOAD_ROOT / job.id
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -267,6 +311,15 @@ def run_download(job: Job, req: DownloadRequest) -> None:
         if not files:
             raise RuntimeError("Download finished but no file was produced.")
         job.file_path = max(files, key=lambda p: p.stat().st_size)
+
+        # the site had nothing at/under the requested quality: shrink it ourselves.
+        # measure the real file — sites don't always report a resolution for every format
+        w, h = probe_size(job.file_path) if req.kind == "video" and req.quality and FFMPEG else (None, None)
+        if w and h and min(w, h) > req.quality * 1.1:
+            job.status = "processing"
+            job.stage = f"Converting to {req.quality}p…"
+            job.file_path = downscale(job.file_path, req.quality, portrait=h > w)
+
         job.download_name = safe_filename(clean_title(info), job.file_path.suffix.lstrip("."))
         job.status = "done"
         job.progress = 100.0
@@ -328,6 +381,7 @@ async def get_progress(job_id: str):
         "speed": job.speed,
         "eta": job.eta,
         "error": job.error,
+        "stage": job.stage,
         "filename": job.download_name or None,
     }
 
