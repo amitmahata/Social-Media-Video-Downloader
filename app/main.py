@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import shutil
 import tempfile
 import threading
@@ -80,6 +81,7 @@ class Job:
     eta: str = ""
     error: str = ""
     file_path: Path | None = None
+    download_name: str = ""
     created: float = field(default_factory=time.time)
 
 
@@ -103,6 +105,7 @@ def base_opts() -> dict:
         "quiet": True,
         "no_warnings": True,
         "noprogress": True,
+        "no_color": True,
         "noplaylist": True,
         "restrictfilenames": False,
         "windowsfilenames": True,
@@ -113,8 +116,31 @@ def base_opts() -> dict:
     return opts
 
 
+ANSI_RE = re.compile(chr(27) + r"\[[0-9;]*m")  # terminal colour codes
+# Facebook/Instagram prefix titles with stats, e.g. "2.9K views · 3.9K reactions | "
+STATS_PREFIX_RE = re.compile(r"^(?:[\d.,]+[KMB]?\s+(?:views|reactions|likes|comments|shares)\s*[·|]\s*)+", re.I)
+
+
+def clean_title(info: dict) -> str:
+    title = (info.get("title") or "").strip()
+    title = STATS_PREFIX_RE.sub("", title).lstrip("| ").strip()
+    uploader = info.get("uploader") or ""
+    if uploader and title.endswith(f"| {uploader}"):
+        title = title[: -len(uploader) - 2].rstrip(" |")
+    return title or info.get("id") or "video"
+
+
+def safe_filename(title: str, ext: str, max_len: int = 80) -> str:
+    """Short, filesystem-safe file name for the user's download."""
+    name = yt_dlp.utils.sanitize_filename(title, restricted=False)
+    name = re.sub(r"\s+", " ", name).strip(" .") or "video"
+    if len(name) > max_len:
+        name = name[:max_len].rsplit(" ", 1)[0].rstrip(" .,-#") or name[:max_len]
+    return f"{name}.{ext}"
+
+
 def clean_error(exc: Exception) -> str:
-    msg = str(exc)
+    msg = ANSI_RE.sub("", str(exc))
     for prefix in ("ERROR: ", "[download] "):
         msg = msg.replace(prefix, "")
     if "Unsupported URL" in msg:
@@ -155,8 +181,11 @@ def video_options(info: dict) -> list[dict]:
 
     best_by_height: dict[int, int] = {}
     for f in formats:
-        h = f.get("height")
-        if not h or f.get("vcodec") in (None, "none"):
+        if f.get("vcodec") in (None, "none") or not f.get("height"):
+            continue
+        # quality is defined by the shorter side, so a 1080x1920 reel counts as 1080p
+        h = min(f["height"], f.get("width") or f["height"])
+        if not h:
             continue
         size = f.get("filesize") or f.get("filesize_approx") or 0
         if f.get("acodec") in (None, "none"):
@@ -164,7 +193,8 @@ def video_options(info: dict) -> list[dict]:
         best_by_height[h] = max(best_by_height.get(h, 0), size)
 
     if not best_by_height and info.get("height"):
-        best_by_height[info["height"]] = info.get("filesize") or 0
+        h = min(info["height"], info.get("width") or info["height"])
+        best_by_height[h] = info.get("filesize") or 0
 
     options = []
     for std in STANDARD_HEIGHTS:
@@ -200,7 +230,9 @@ def run_download(job: Job, req: DownloadRequest) -> None:
             job.progress = 100.0
 
     opts = base_opts() | {
-        "outtmpl": str(out_dir / "%(title).150B [%(id)s].%(ext)s"),
+        # save under the short video id (long captions overflow Windows' 260-char path limit);
+        # the friendly name is applied when the file is served
+        "outtmpl": str(out_dir / "%(id).60B.%(ext)s"),
         "progress_hooks": [hook],
         "postprocessor_hooks": [lambda d: setattr(job, "status", "processing")],
     }
@@ -213,28 +245,29 @@ def run_download(job: Job, req: DownloadRequest) -> None:
                 {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": str(bitrate)}
             ]
     else:
+        # "res" sorts by the shorter side, so portrait reels and landscape videos both work;
+        # "res:720" means "best resolution not above 720p"
+        sort = ["res", "ext:mp4:m4a"]
         if req.quality:
-            h = req.quality
-            opts["format"] = (
-                f"bv*[height<={h}][ext=mp4]+ba[ext=m4a]/"
-                f"bv*[height<={h}]+ba/"
-                f"b[height<={h}]/bv*+ba/b"
-            )
-        else:
-            opts["format"] = "bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b"
+            sort[0] = f"res:{req.quality}"
+        opts["format_sort"] = sort
         if FFMPEG:
+            opts["format"] = "bv*+ba/b"
             opts["merge_output_format"] = "mp4"
         else:
             # without ffmpeg we can only take single-file (pre-merged) formats
-            opts["format"] = f"b[height<={req.quality}]/b" if req.quality else "b"
+            opts["format"] = "b"
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([req.url])
+            info = ydl.extract_info(req.url, download=True)
+        if info.get("_type") == "playlist" and info.get("entries"):
+            info = next((e for e in info["entries"] if e), info)
         files = [p for p in out_dir.iterdir() if p.is_file() and not p.name.endswith((".part", ".ytdl"))]
         if not files:
             raise RuntimeError("Download finished but no file was produced.")
         job.file_path = max(files, key=lambda p: p.stat().st_size)
+        job.download_name = safe_filename(clean_title(info), job.file_path.suffix.lstrip("."))
         job.status = "done"
         job.progress = 100.0
     except Exception as exc:  # noqa: BLE001
@@ -262,7 +295,7 @@ async def get_info(body: InfoRequest):
         info = next((e for e in info["entries"] if e), info)
 
     return {
-        "title": info.get("title") or "Untitled",
+        "title": clean_title(info),
         "thumbnail": info.get("thumbnail"),
         "duration": fmt_seconds(info.get("duration")),
         "uploader": info.get("uploader") or info.get("channel") or "",
@@ -295,7 +328,7 @@ async def get_progress(job_id: str):
         "speed": job.speed,
         "eta": job.eta,
         "error": job.error,
-        "filename": job.file_path.name if job.file_path else None,
+        "filename": job.download_name or None,
     }
 
 
@@ -304,7 +337,9 @@ async def get_file(job_id: str):
     job = jobs.get(job_id)
     if not job or job.status != "done" or not job.file_path or not job.file_path.exists():
         raise HTTPException(404, "File not ready or expired.")
-    return FileResponse(job.file_path, filename=job.file_path.name, media_type="application/octet-stream")
+    return FileResponse(
+        job.file_path, filename=job.download_name or job.file_path.name, media_type="application/octet-stream"
+    )
 
 
 @app.get("/api/health")
