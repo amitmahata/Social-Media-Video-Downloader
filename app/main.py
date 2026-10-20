@@ -30,7 +30,7 @@ DOWNLOAD_ROOT.mkdir(exist_ok=True)
 
 JOB_TTL_SECONDS = 30 * 60  # finished files are deleted after 30 minutes
 MAX_WORKERS = 3
-STANDARD_HEIGHTS = [2160, 1440, 1080, 720, 480, 360, 240, 144]
+STANDARD_HEIGHTS = [2160, 1440, 1080, 720, 480, 360]  # nothing below 360p is offered
 AUDIO_BITRATES = [320, 192, 128]
 
 
