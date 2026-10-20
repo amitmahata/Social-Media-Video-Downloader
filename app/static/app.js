@@ -106,14 +106,40 @@ $("url-form").addEventListener("submit", async (e) => {
   }
 });
 
+// iPhone/iPad (iPadOS reports itself as a Mac with touch support)
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+const isTouch = isIOS || /Android/.test(navigator.userAgent);
+
+function showHint(msg) {
+  $("hint").textContent = msg;
+  $("hint").hidden = !msg;
+}
+
 $("paste").addEventListener("click", async () => {
+  showError("");
+  // iOS asks for permission with a small "Paste" bubble next to the button
+  showHint(isIOS ? "Tap “Paste” in the small bubble that appears." : "");
   try {
-    $("url").value = (await navigator.clipboard.readText()).trim();
+    if (!navigator.clipboard?.readText) throw new Error("unsupported");
+    const text = (await navigator.clipboard.readText()).trim();
+    if (!text) throw new Error("empty");
+    $("url").value = text;
+    showHint("");
     $("url").focus();
   } catch {
-    showError("Clipboard access was blocked — paste the link with Ctrl+V instead.");
+    // browsers can refuse clipboard access (iOS "Paste from Other Apps", dismissed bubble,
+    // older browsers) — put the cursor in the box and explain the manual way instead
+    $("url").focus();
+    $("url").select();
+    showHint(isTouch
+      ? "Couldn't read your clipboard. Tap and hold in the box above, then tap Paste."
+      : "Couldn't read your clipboard. Click in the box above and press Ctrl+V (⌘V on Mac).");
   }
 });
+
+// clear the hint as soon as a link is typed or pasted by hand
+$("url").addEventListener("input", () => showHint(""));
 
 function renderInfo() {
   const i = state.info;
