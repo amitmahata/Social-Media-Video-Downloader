@@ -89,11 +89,15 @@ app.add_middleware(
 LONG_CACHE = (".png", ".svg", ".ico", ".webmanifest")
 
 
+def _is_api_host(host: str) -> bool:
+    return host.startswith("api.") or host.endswith(".onrender.com")
+
+
 @app.middleware("http")
 async def seo_headers(request: Request, call_next):
     response = await call_next(request)
     path = request.url.path
-    if path.startswith("/api/") or (request.url.hostname or "").startswith("api."):
+    if path.startswith("/api/") or _is_api_host(request.url.hostname or ""):
         # the API host also serves a copy of the page — keep it (and the API) out of search
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
     elif path.endswith(LONG_CACHE):

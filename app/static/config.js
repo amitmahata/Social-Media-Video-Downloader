@@ -1,4 +1,4 @@
 // Where the downloader API lives.
-// ""  → same server as this page (local development, or one host serving everything)
-// "https://api.save.amitmahata.com" → page on Vercel, downloader on Render
-window.API_BASE = "";
+// The live page (on Vercel) uses the Render service; anywhere else (local development,
+// or the Render copy itself) talks to the same server that served the page.
+window.API_BASE = location.hostname === "save.amitmahata.com" ? "https://save-api-pafu.onrender.com" : "";
