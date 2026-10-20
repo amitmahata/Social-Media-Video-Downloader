@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import mimetypes
 import re
 import shutil
 import subprocess
@@ -18,7 +19,8 @@ from typing import Literal
 from urllib.parse import urlparse
 
 import yt_dlp
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -57,6 +59,31 @@ async def lifespan(_app):
 
 
 app = FastAPI(title="Social Media Video Downloader", lifespan=lifespan)
+# compress HTML/CSS/JS/JSON only; downloads and images are already compressed
+app.add_middleware(
+    GZipMiddleware,
+    minimum_size=1024,
+    exclude_content_types=("text/event-stream", "application/octet-stream", "image/png", "video/mp4", "audio/mpeg"),
+)
+mimetypes.add_type("application/manifest+json", ".webmanifest")
+
+LONG_CACHE = (".png", ".svg", ".ico", ".webmanifest")
+
+
+@app.middleware("http")
+async def seo_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/api/"):
+        # keep API responses (and downloaded files) out of search results
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    elif path.endswith(LONG_CACHE):
+        response.headers["Cache-Control"] = "public, max-age=2592000"  # 30 days
+    else:
+        # HTML/CSS/JS, robots.txt, sitemap.xml: revalidate every time (cheap 304 via ETag)
+        # so a new deploy shows up immediately
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
 

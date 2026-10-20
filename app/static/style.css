@@ -193,7 +193,7 @@ button.ghost { background: var(--accent-soft); color: var(--accent); }
   display: inline-block; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
   color: var(--accent); background: var(--accent-soft); padding: 3px 10px; border-radius: 999px;
 }
-.details h2 { margin: 8px 0 2px; font-size: 1.15rem; overflow-wrap: anywhere; }
+.details h3 { margin: 8px 0 2px; font-size: 1.15rem; overflow-wrap: anywhere; }
 .muted { color: var(--muted); margin: 0 0 16px; }
 
 .tabs {
@@ -233,6 +233,44 @@ button.ghost { background: var(--accent-soft); color: var(--accent); }
 .done-text { color: #16a34a; font-weight: 600; overflow-wrap: anywhere; }
 .again { color: var(--accent); font-weight: 600; white-space: nowrap; text-decoration: none; }
 .again:hover { text-decoration: underline; }
+
+/* ------------------------------------------------------------ info sections */
+.info { margin-top: 56px; }
+.info h2 { text-align: center; font-size: clamp(1.3rem, 3.5vw, 1.7rem); margin: 0 0 20px; letter-spacing: -0.01em; }
+.info h3 { font-size: 1rem; margin: 0 0 4px; }
+.info p { margin: 0; color: var(--muted); font-size: .92rem; }
+
+.steps, .features { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.features { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }  /* 2x2 on desktop */
+.steps { list-style: none; padding: 0; margin: 0; }
+.steps li, .features > div, .faq details {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-radius: var(--radius); padding: 18px;
+}
+.num {
+  display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; margin-bottom: 10px;
+  color: #fff; font-weight: 700; font-size: .9rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+.chips { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.chips li {
+  padding: 8px 14px; border-radius: 999px; font-size: .9rem; font-weight: 600;
+  background: var(--glass); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+
+.faq { display: grid; gap: 8px; }
+.faq details { padding: 0; }
+.faq summary {
+  cursor: pointer; list-style: none; padding: 16px 18px; font-weight: 600;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; font-size: 1.3rem; color: var(--accent); transition: transform .2s; }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details p { padding: 0 18px 16px; }
 
 /* ------------------------------------------------------------ footer */
 footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 48px; }

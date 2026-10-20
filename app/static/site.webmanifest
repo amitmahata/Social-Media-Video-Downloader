@@ -1,0 +1,14 @@
+{
+  "name": "Social Media Video Downloader",
+  "short_name": "Save Video",
+  "description": "Save Instagram reels, Facebook, TikTok, X and YouTube videos in HD or as MP3.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f6fb",
+  "theme_color": "#6d5dfc",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
