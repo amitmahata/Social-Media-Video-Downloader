@@ -128,6 +128,35 @@ function renderInfo() {
   renderOptions();
 }
 
+// ---------------------------------------------------------------- device compatibility
+// iPhone/iPad/Mac can't play VP9/AV1 in MP4 (black picture, sound only), so Apple devices
+// default to H.264; Windows/Android play those codecs and default to the best quality.
+const isApple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+const COMPAT_KEY = "smvd-compatible";
+
+function loadCompat() {
+  try {
+    const saved = localStorage.getItem(COMPAT_KEY);
+    if (saved !== null) return saved === "1";
+  } catch { /* storage blocked */ }
+  return isApple;
+}
+
+state.compatible = loadCompat();
+$("compat").checked = state.compatible;
+$("compat").addEventListener("change", (e) => {
+  state.compatible = e.target.checked;
+  try { localStorage.setItem(COMPAT_KEY, state.compatible ? "1" : "0"); } catch { /* ignore */ }
+  updateCompatHint();
+});
+
+function updateCompatHint() {
+  $("compat-hint").textContent = state.compatible
+    ? "H.264 · plays everywhere, may be lower quality"
+    : "Best quality · may show a black picture on iPhone/Mac";
+}
+updateCompatHint();
+
 // ---------------------------------------------------------------- options
 document.querySelectorAll(".tab").forEach((btn) =>
   btn.addEventListener("click", () => {
@@ -164,6 +193,7 @@ function renderOptions() {
   const box = $("options");
   box.replaceChildren();
   const i = state.info;
+  $("compat-row").hidden = state.tab !== "video";
 
   if (state.tab === "video") {
     if (!i.video_options.length) {
@@ -229,7 +259,7 @@ async function startDownload(kind, quality) {
   setProgress(0, "Starting…", "", true);
 
   try {
-    const { job_id } = await api("/api/download", { url: state.url, kind, quality });
+    const { job_id } = await api("/api/download", { url: state.url, kind, quality, compatible: state.compatible });
 
     while (true) {
       await new Promise((r) => setTimeout(r, 800));

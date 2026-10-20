@@ -121,6 +121,9 @@ class DownloadRequest(BaseModel):
     url: str
     kind: Literal["video", "audio"] = "video"
     quality: int | None = None  # video height (e.g. 720) or audio bitrate (e.g. 192)
+    # True: H.264 only, so it plays on iPhone/Mac. False: best quality in any codec (VP9/AV1),
+    # which Windows and Android play fine
+    compatible: bool = True
 
 
 @dataclass
@@ -362,9 +365,14 @@ def run_download(job: Job, req: DownloadRequest) -> None:
             sort[0] = f"res:{req.quality}"
         opts["format_sort"] = sort
         if FFMPEG:
-            # prefer versions every device can play; otherwise take the best and convert below
-            pf = PLAYABLE_FILTER
-            opts["format"] = f"bv{pf}+ba/b{pf}/bv*+ba/b"
+            if req.compatible:
+                # prefer versions every device can play; otherwise take the best and convert below
+                pf = PLAYABLE_FILTER
+                opts["format"] = f"bv{pf}+ba/b{pf}/bv*+ba/b"
+            else:
+                # best quality in any codec; among equal resolutions still prefer H.264
+                opts["format"] = "bv*+ba/b"
+                opts["format_sort"] = [*opts["format_sort"][:1], "vcodec:h264", *opts["format_sort"][1:]]
             opts["merge_output_format"] = "mp4"
         else:
             # without ffmpeg we can only take single-file (pre-merged) formats
@@ -385,13 +393,18 @@ def run_download(job: Job, req: DownloadRequest) -> None:
             codec, w, h = probe_video(job.file_path)
             res = min(w, h) if w and h else None
             too_big = bool(req.quality and res and res > req.quality * 1.1)
-            unplayable = codec is not None and codec not in PLAYABLE_CODECS
+            unplayable = req.compatible and codec is not None and codec not in PLAYABLE_CODECS
             if too_big or unplayable:
                 job.status = "processing"
                 job.stage = f"Converting to {req.quality}p…" if too_big else "Making it playable on all devices…"
                 job.file_path = to_h264(job.file_path, req.quality if too_big else None, portrait=bool(w and h and h > w))
             elif req.quality and res and res < req.quality * 0.9:
-                job.note = f"Saved in {res}p — the highest quality that plays on every device"
+                job.note = (
+                    f"Saved in {res}p — the highest quality that plays on iPhone/Mac. "
+                    "Turn off “Plays on iPhone / Mac” for higher quality on Windows or Android."
+                    if req.compatible
+                    else f"Saved in {res}p — the highest quality this video has"
+                )
 
         job.download_name = safe_filename(clean_title(info), job.file_path.suffix.lstrip("."))
         job.status = "done"
