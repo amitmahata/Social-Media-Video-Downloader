@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import mimetypes
+import os
 import re
 import shutil
 import subprocess
@@ -20,6 +21,7 @@ from urllib.parse import urlparse
 
 import yt_dlp
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -67,6 +69,23 @@ app.add_middleware(
 )
 mimetypes.add_type("application/manifest+json", ".webmanifest")
 
+# the page may be hosted elsewhere (e.g. Vercel) and call this API cross-origin
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        "ALLOWED_ORIGINS", "https://save.amitmahata.com,http://localhost:8000,http://127.0.0.1:8000"
+    ).split(",")
+    if o.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+    expose_headers=["Content-Disposition"],
+    max_age=86400,
+)
+
 LONG_CACHE = (".png", ".svg", ".ico", ".webmanifest")
 
 
@@ -74,8 +93,8 @@ LONG_CACHE = (".png", ".svg", ".ico", ".webmanifest")
 async def seo_headers(request: Request, call_next):
     response = await call_next(request)
     path = request.url.path
-    if path.startswith("/api/"):
-        # keep API responses (and downloaded files) out of search results
+    if path.startswith("/api/") or (request.url.hostname or "").startswith("api."):
+        # the API host also serves a copy of the page — keep it (and the API) out of search
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
     elif path.endswith(LONG_CACHE):
         response.headers["Cache-Control"] = "public, max-age=2592000"  # 30 days

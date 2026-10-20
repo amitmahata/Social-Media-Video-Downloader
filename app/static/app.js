@@ -22,16 +22,61 @@ function showError(msg) {
   $("error").hidden = !msg;
 }
 
+const API = (window.API_BASE || "").replace(/\/$/, "");
+
 async function api(path, body) {
-  const res = await fetch(path, {
-    method: body ? "POST" : "GET",
-    headers: body ? { "Content-Type": "application/json" } : {},
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(API + path, {
+      method: body ? "POST" : "GET",
+      headers: body ? { "Content-Type": "application/json" } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error("Couldn't reach the download server. Check your connection and try again.");
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail || `Request failed (${res.status})`);
   return data;
 }
+
+// ---------------------------------------------------------------- server wake-up
+// The free Render plan sleeps when idle; wake it as soon as the page opens so it's
+// usually ready by the time someone pastes a link.
+const server = { ready: false, waking: null };
+
+function setServerStatus(kind, text) {
+  const el = $("server-status");
+  el.dataset.state = kind;
+  el.querySelector(".label").textContent = text;
+}
+
+function wakeServer() {
+  if (server.ready) return Promise.resolve();
+  if (server.waking) return server.waking;
+  const slow = setTimeout(() => setServerStatus("waking", "Starting server… (first use can take up to a minute)"), 1500);
+  server.waking = (async () => {
+    for (let attempt = 0; attempt < 30; attempt++) {
+      try {
+        const res = await fetch(`${API}/api/health`, { cache: "no-store" });
+        if (res.ok) {
+          clearTimeout(slow);
+          server.ready = true;
+          setServerStatus("ready", "Free · No sign-up · No watermark");
+          return;
+        }
+      } catch { /* still waking */ }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    clearTimeout(slow);
+    setServerStatus("down", "Server is unavailable right now — please try again later");
+    server.waking = null;
+    throw new Error("The download server didn't respond. Please try again in a minute.");
+  })();
+  return server.waking;
+}
+
+wakeServer().catch(() => {});
 
 // ---------------------------------------------------------------- fetch info
 $("url-form").addEventListener("submit", async (e) => {
@@ -45,6 +90,11 @@ $("url-form").addEventListener("submit", async (e) => {
   $("fetch").disabled = true;
 
   try {
+    if (!server.ready) {
+      $("loading").lastChild.textContent = " Waking up the server… this can take up to a minute the first time";
+      await wakeServer();
+    }
+    $("loading").lastChild.textContent = " Fetching video details…";
     state.info = await api("/api/info", { url });
     state.url = url;
     renderInfo();
@@ -182,7 +232,7 @@ async function startDownload(kind, quality) {
       if (p.status === "error") throw new Error(p.error);
       if (p.status === "done") {
         // the file is already complete on the server, so the browser saves it right away
-        const href = `/api/file/${job_id}`;
+        const href = `${API}/api/file/${job_id}`;
         const a = document.createElement("a");
         a.href = href;
         a.download = p.filename || "";
