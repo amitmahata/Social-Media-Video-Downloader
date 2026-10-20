@@ -191,7 +191,7 @@ function setBusy(busy) {
   document.querySelectorAll(".options button, .tab, #fetch").forEach((b) => (b.disabled = busy));
 }
 
-function showDone(filename, href) {
+function showDone(filename, href, note) {
   setProgress(100, "", "");
   document.querySelector(".bar").classList.add("complete");
   const text = $("progress-text");
@@ -205,6 +205,12 @@ function showDone(filename, href) {
   again.className = "again";
   again.textContent = "Download again";
   text.append(ok);
+  if (note) {
+    const small = document.createElement("small");
+    small.className = "done-note";
+    small.textContent = note;
+    text.append(small);
+  }
   $("progress-speed").replaceChildren(again);
 }
 
@@ -239,7 +245,7 @@ async function startDownload(kind, quality) {
         document.body.append(a);
         a.click();
         a.remove();
-        showDone(p.filename, href);
+        showDone(p.filename, href, p.note);
         break;
       }
       if (p.status === "processing") {

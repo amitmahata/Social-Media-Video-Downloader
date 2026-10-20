@@ -234,6 +234,7 @@ button.ghost { background: var(--accent-soft); color: var(--accent); }
   color: var(--muted); font-size: .85rem; margin-top: 6px;
 }
 .done-text { color: #16a34a; font-weight: 600; overflow-wrap: anywhere; }
+.done-note { display: block; color: var(--muted); margin-top: 2px; }
 .again { color: var(--accent); font-weight: 600; white-space: nowrap; text-decoration: none; }
 .again:hover { text-decoration: underline; }
 

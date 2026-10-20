@@ -132,6 +132,7 @@ class Job:
     eta: str = ""
     error: str = ""
     stage: str = ""  # human-readable step shown while processing
+    note: str = ""  # shown with the finished download
     file_path: Path | None = None
     download_name: str = ""
     created: float = field(default_factory=time.time)
@@ -283,23 +284,32 @@ def platform_name(info: dict) -> str:
 # --------------------------------------------------------------------------- #
 # Download worker
 # --------------------------------------------------------------------------- #
-VIDEO_SIZE_RE = re.compile(r"Video:.*?\b(\d{2,5})x(\d{2,5})\b")
+VIDEO_STREAM_RE = re.compile(r"Video: (\w+).*?\b(\d{2,5})x(\d{2,5})\b")
+# codecs that play everywhere inside MP4 — iPhones show a black picture for VP9 and
+# (except the newest models) AV1, which Instagram and Facebook often serve
+PLAYABLE_CODECS = ("h264", "hevc")
+# yt-dlp filter for those codecs; "?" also accepts formats whose codec isn't reported
+# (the single-file MP4s on Instagram/Facebook, which are H.264)
+PLAYABLE_FILTER = "[vcodec~=?'^(avc|h264|hev|hvc|h265)']"
 
 
-def probe_size(path: Path) -> tuple[int | None, int | None]:
-    """Width/height of the first video stream, read from ffmpeg's stream summary."""
+def probe_video(path: Path) -> tuple[str | None, int | None, int | None]:
+    """Codec, width and height of the first video stream, from ffmpeg's stream summary."""
     result = subprocess.run(
         [FFMPEG, "-hide_banner", "-i", str(path)], capture_output=True, text=True, encoding="utf-8", errors="replace"
     )
-    m = VIDEO_SIZE_RE.search(result.stderr)
-    return (int(m.group(1)), int(m.group(2))) if m else (None, None)
+    m = VIDEO_STREAM_RE.search(result.stderr)
+    return (m.group(1), int(m.group(2)), int(m.group(3))) if m else (None, None, None)
 
 
-def downscale(src: Path, quality: int, portrait: bool) -> Path:
-    """Re-encode to H.264 with the shorter side set to `quality` (e.g. 480p)."""
-    dst = src.with_name(f"{src.stem}.{quality}p.mp4")
-    # -2 keeps the aspect ratio with an even dimension (required by H.264)
-    scale = f"scale={quality}:-2" if portrait else f"scale=-2:{quality}"
+def to_h264(src: Path, quality: int | None, portrait: bool) -> Path:
+    """Re-encode to H.264/AAC MP4, optionally scaling the shorter side to `quality` (e.g. 480p)."""
+    dst = src.with_name(f"{src.stem}.h264.mp4")
+    if quality:
+        # -2 keeps the aspect ratio with an even dimension (required by H.264)
+        scale = f"scale={quality}:-2" if portrait else f"scale=-2:{quality}"
+    else:
+        scale = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
     cmd = [
         FFMPEG, "-y", "-loglevel", "error", "-i", str(src),
         "-vf", scale, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
@@ -308,7 +318,7 @@ def downscale(src: Path, quality: int, portrait: bool) -> Path:
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode != 0 or not dst.exists():
-        raise RuntimeError(f"Couldn't convert to {quality}p: {result.stderr.strip()[-300:]}")
+        raise RuntimeError(f"Couldn't convert the video: {result.stderr.strip()[-300:]}")
     src.unlink(missing_ok=True)
     return dst
 
@@ -352,7 +362,9 @@ def run_download(job: Job, req: DownloadRequest) -> None:
             sort[0] = f"res:{req.quality}"
         opts["format_sort"] = sort
         if FFMPEG:
-            opts["format"] = "bv*+ba/b"
+            # prefer versions every device can play; otherwise take the best and convert below
+            pf = PLAYABLE_FILTER
+            opts["format"] = f"bv{pf}+ba/b{pf}/bv*+ba/b"
             opts["merge_output_format"] = "mp4"
         else:
             # without ffmpeg we can only take single-file (pre-merged) formats
@@ -368,13 +380,18 @@ def run_download(job: Job, req: DownloadRequest) -> None:
             raise RuntimeError("Download finished but no file was produced.")
         job.file_path = max(files, key=lambda p: p.stat().st_size)
 
-        # the site had nothing at/under the requested quality: shrink it ourselves.
-        # measure the real file — sites don't always report a resolution for every format
-        w, h = probe_size(job.file_path) if req.kind == "video" and req.quality and FFMPEG else (None, None)
-        if w and h and min(w, h) > req.quality * 1.1:
-            job.status = "processing"
-            job.stage = f"Converting to {req.quality}p…"
-            job.file_path = downscale(job.file_path, req.quality, portrait=h > w)
+        if req.kind == "video" and FFMPEG:
+            # measure the real file — sites don't always report codec/resolution per format
+            codec, w, h = probe_video(job.file_path)
+            res = min(w, h) if w and h else None
+            too_big = bool(req.quality and res and res > req.quality * 1.1)
+            unplayable = codec is not None and codec not in PLAYABLE_CODECS
+            if too_big or unplayable:
+                job.status = "processing"
+                job.stage = f"Converting to {req.quality}p…" if too_big else "Making it playable on all devices…"
+                job.file_path = to_h264(job.file_path, req.quality if too_big else None, portrait=bool(w and h and h > w))
+            elif req.quality and res and res < req.quality * 0.9:
+                job.note = f"Saved in {res}p — the highest quality that plays on every device"
 
         job.download_name = safe_filename(clean_title(info), job.file_path.suffix.lstrip("."))
         job.status = "done"
@@ -438,6 +455,7 @@ async def get_progress(job_id: str):
         "eta": job.eta,
         "error": job.error,
         "stage": job.stage,
+        "note": job.note,
         "filename": job.download_name or None,
     }
 
