@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Social Media Video Downloader</title>
+  <meta name="description" content="Download videos, reels and audio from YouTube, Instagram, Facebook, TikTok, X and more." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%236d5dfc' d='M12 3v11l4-4 1.4 1.4L12 17.8l-5.4-5.4L8 11l4 4V3zM5 19h14v2H5z'/></svg>" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <h1>Social Media <span>Video Downloader</span></h1>
+      <p>Paste a link from YouTube, Instagram, Facebook, TikTok, X, Reddit, Vimeo and 1000+ other sites.
+         Pick a quality — or grab just the audio.</p>
+    </header>
+
+    <form id="url-form" class="search" autocomplete="off">
+      <input id="url" type="url" required placeholder="https://www.instagram.com/reel/…" aria-label="Video URL" />
+      <button type="button" id="paste" class="ghost" title="Paste from clipboard">Paste</button>
+      <button type="submit" id="fetch">Fetch</button>
+    </form>
+
+    <p id="error" class="error" hidden></p>
+    <div id="loading" class="loading" hidden><span class="spinner"></span> Fetching video details…</div>
+
+    <section id="result" class="card" hidden>
+      <div class="media">
+        <img id="thumb" alt="" referrerpolicy="no-referrer" />
+        <span id="duration" class="badge"></span>
+      </div>
+      <div class="details">
+        <span id="platform" class="platform"></span>
+        <h2 id="title"></h2>
+        <p id="uploader" class="muted"></p>
+
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="video" role="tab">Video (MP4)</button>
+          <button class="tab" data-tab="audio" role="tab">Audio only (MP3)</button>
+        </div>
+
+        <div id="options" class="options"></div>
+
+        <div id="progress" class="progress" hidden>
+          <div class="bar"><div id="bar-fill"></div></div>
+          <div class="progress-meta"><span id="progress-text">Starting…</span><span id="progress-speed"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <p>Only download content you own or have permission to use. Respect creators and each platform's terms.</p>
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
