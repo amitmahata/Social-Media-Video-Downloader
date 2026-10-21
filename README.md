@@ -21,6 +21,17 @@ python -m venv .venv
 
 Then open http://localhost:8000.
 
+## Editing the page
+The browser code is minified. Edit the readable sources in `frontend/` (`app.js`, `config.js`,
+`style.css`), then rebuild the files served from `app/static/`:
+
+```bash
+npm install
+npm run build
+```
+
+Commit both `frontend/` and the rebuilt `app/static/app.js` / `style.css`.
+
 ## API
 | Method | Path | Purpose |
 |---|---|---|
