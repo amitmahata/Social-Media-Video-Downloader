@@ -1,6 +1,6 @@
 # Social Media Video Downloader
 
-Paste a link from YouTube, Instagram (reels/posts), Facebook, TikTok, X/Twitter, Reddit, Vimeo
+Paste a link from Instagram (reels/posts), Facebook, TikTok, X/Twitter, Reddit, Vimeo
 and [1000+ other sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), then
 download the video in a standard quality (144p – 4K, whatever the source offers) as MP4,
 or extract the audio only as MP3 (128 / 192 / 320 kbps).
@@ -60,5 +60,6 @@ Use any Docker host instead — the included `Dockerfile` works as-is on:
 Custom domain: add a CNAME record for your subdomain (e.g. `dl` → the host's URL) and add the
 domain in the host's dashboard; it issues HTTPS automatically.
 
-Note: YouTube often blocks downloads from datacenter IPs ("Sign in to confirm you're not a bot").
+Note: YouTube blocks downloads from datacenter IPs ("Sign in to confirm you're not a bot"), so the hosted
+site does not support YouTube; it works when you run the app on a home connection.
 Instagram/Facebook/TikTok are usually fine.

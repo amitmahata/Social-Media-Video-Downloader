@@ -207,8 +207,8 @@ def clean_error(exc: Exception) -> str:
     if "not a bot" in msg or "Sign in to confirm" in msg:
         # YouTube blocks most cloud/datacenter servers regardless of the video
         return (
-            "YouTube is blocking downloads from our server right now. "
-            "Instagram, Facebook, TikTok, X and other sites still work — please try one of those."
+            "YouTube links aren't supported — YouTube blocks downloads from servers like ours. "
+            "Instagram, Facebook, TikTok, X, Reddit and Vimeo work — please try one of those."
         )
     if "Unsupported URL" in msg:
         return "This link isn't supported. Make sure it points to a public video or reel."
